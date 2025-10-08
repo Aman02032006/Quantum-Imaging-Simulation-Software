@@ -4,8 +4,8 @@
 #include <cmath>
 
 // Constructor
-WaveFront::WaveFront(double size, double pixel_size, ray normal, double wavelength, FieldType source, double w0, int l, int p)
-    : size(size), pixel_size(pixel_size), normal(normal), wavelength(wavelength), source(source), w0(w0), l(l), p(p)
+WaveFront::WaveFront(double size, double pixel_size, ray normal, double wavelength, FieldType source, double psi, double delta, double w0, int l, int p)
+    : size(size), pixel_size(pixel_size), normal(normal), wavelength(wavelength), source(source), w0(w0), l(l), p(p), psi(psi), delta(delta)
 {
     N = (int)(size / pixel_size);
     Ex.resize(N, std::vector<std::complex<double>>(N, {0.0, 0.0}));
@@ -177,20 +177,73 @@ std::vector<std::vector<double>> WaveFront::Phase() const
     return phase;
 }
 
-void WaveFront::initialize() {
-    double k = 2 * PI / wavelength ;
-    double half = size / 2.0 ;
+void WaveFront::initialize()
+{
+    double k = 2 * PI / wavelength;
+    double half = size / 2.0;
 
-    for (int i = 0 ; i < N ; i++) {
-        double x = (i - N / 2) * pixel_size ;
-        
+    for (int i = 0; i < N; i++)
+    {
+        double x = (i - N / 2) * pixel_size;
+        for (int j = 0; j < N; j++)
+        {
+            double y = (j - N / 2) * pixel_size;
+            std::complex<double> comp_amp(0.0, 0.0);
+            double norm = sqrt(2.0 / (PI * w0 * w0));
+
+            switch (source)
+            {
+            case FieldType::PLANE:
+                comp_amp = std::polar(1.0, 0.0);
+                break;
+
+            case FieldType::GAUSSIAN:
+            {
+                double r2 = x * x + y * y;
+                double amp = norm * exp(-r2 / (w0 * w0));
+                comp_amp = std::complex<double>(amp, 0.0);
+                break;
+            }
+
+            case FieldType::LG:
+            {
+                double r = sqrt(x * x + y * y);
+                double phi = atan2(y, x);
+                double rho = sqrt(2.0) * r / w0;
+                double L = genLaguerre(p, std::abs(l), rho * rho);
+                double amp = L * pow(rho, std::abs(l)) * exp(-rho * rho / 2.0);
+
+                double norm = sqrt(2.0 * factorial(p) / (PI * factorial(p + std::abs(l)))) / w0;
+
+                amp *= norm;
+
+                double phase = l * phi + k * dot(normal.dir(), vec3(x, y, 0.0));
+
+                comp_amp = std::polar(amp, phase);
+                break;
+            }
+
+            case FieldType::HG:
+            {
+                double X = sqrt(2.0) * x / w0;
+                double Y = sqrt(2.0) * y / w0;
+                double Hm = hermitePol(l, X);
+                double Hn = hermitePol(p, Y);
+                comp_amp = std::complex<double>(norm * Hm * Hn * exp(-(x * x + y * y) / (w0 * w0)), 0.0);
+                break;
+            }
+            }
+
+            Ex[i][j] = comp_amp * std::cos(psi);
+            Ey[i][j] = comp_amp * std::polar(1.0, delta) * std::sin(psi);
+        }
     }
 }
 
 // Operators
 WaveFront WaveFront::operator+(const WaveFront &other)
 {
-    WaveFront C(this->getSize(), this->getPixelSize(), this->getNormal(), this->getWavelength(), this->source, this->w0, this->l, this->p);
+    WaveFront C(this->getSize(), this->getPixelSize(), this->getNormal(), this->getWavelength(), this->source, this->psi, this->delta, this->w0, this->l, this->p);
     for (int i = 0; i < C.N; i++)
         for (int j = 0; j < C.N; j++)
         {
@@ -202,7 +255,7 @@ WaveFront WaveFront::operator+(const WaveFront &other)
 
 WaveFront WaveFront::operator-(const WaveFront &other)
 {
-    WaveFront C(this->getSize(), this->getPixelSize(), this->getNormal(), this->getWavelength(), this->source, this->w0, this->l, this->p);
+    WaveFront C(this->getSize(), this->getPixelSize(), this->getNormal(), this->getWavelength(), this->source, this->psi, this->delta, this->w0, this->l, this->p);
     for (int i = 0; i < C.N; i++)
         for (int j = 0; j < C.N; j++)
         {

@@ -16,6 +16,8 @@ private:
     double wavelength; // Wavelength of the Wavefront
     ray normal;        // Normal to the wavefront plane
     FieldType source;  // Stores the type of source field
+    double psi;        // Polarization angle
+    double delta;      // Relative phase difference
     double w0;         // Beam specific parameters
     int l, p;
 
@@ -27,7 +29,7 @@ public:
     vec3 u, v;                                         // Local frame for the wavefront plane
     int N;                                             // The Ex and Ey will be a N x N grid
 
-    WaveFront(double size, double pixel_size, ray normal, double wavelength, FieldType source, double w0, int l, int p);
+    WaveFront(double size, double pixel_size, ray normal, double wavelength, FieldType source, double psi, double delta, double w0, int l, int p);
 
     // Getters
     double getSize();
